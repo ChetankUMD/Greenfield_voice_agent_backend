@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: greenfield-voice-agent
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: greenfield-db
+          property: connectionString
+      - key: VAPI_API_KEY
+        sync: false
+      - key: VAPI_PHONE_NUMBER_ID
+        sync: false
+      - key: VAPI_OUTBOUND_ASSISTANT_ID
+        sync: false
+      - key: VAPI_WEBHOOK_SECRET
+        sync: false
+      - key: PRACTICE_CALLBACK_NUMBER
+        sync: false
+      - key: RETRY_INTERVAL_MINUTES
+        value: "2880"
+
+databases:
+  - name: greenfield-db
+    databaseName: greenfield
+    user: greenfield
