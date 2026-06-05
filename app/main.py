@@ -12,11 +12,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import engine
-from .models import Base
+from .models import Base, ProcessingJob
 from .seed import seed
 from .scheduler import start_scheduler
 from .db import SessionLocal
-from .routes import health, admin, tools, referral, vapi
+from .routes import health, admin, tools, referral, vapi, process as process_route
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,6 +35,25 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         seed(db)
+    finally:
+        db.close()
+
+    # Reset any jobs that were mid-flight when the server last stopped.
+    # Without this they would be stuck in "processing" forever.
+    db = SessionLocal()
+    try:
+        stuck = (
+            db.query(ProcessingJob)
+            .filter(ProcessingJob.status == "processing")
+            .all()
+        )
+        if stuck:
+            for job in stuck:
+                job.status = "failed"
+                job.error_message = "Server restarted while job was processing — resubmit to retry."
+                job.file_bytes = None
+            db.commit()
+            logger.warning("Reset %d stuck processing job(s) to failed on startup.", len(stuck))
     finally:
         db.close()
 
@@ -65,3 +84,4 @@ app.include_router(admin.router)
 app.include_router(tools.router)
 app.include_router(referral.router)
 app.include_router(vapi.router)
+app.include_router(process_route.router)

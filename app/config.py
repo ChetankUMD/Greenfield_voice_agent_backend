@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://localhost/greenfield")
+ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
 VAPI_API_KEY: str = os.getenv("VAPI_API_KEY", "")
 VAPI_OUTBOUND_ASSISTANT_ID: str = os.getenv("VAPI_OUTBOUND_ASSISTANT_ID", "")
 VAPI_PHONE_NUMBER_ID: str = os.getenv("VAPI_PHONE_NUMBER_ID", "")
