@@ -3,6 +3,11 @@ Referral retry scheduler — runs every 60 s and drives the outbound-call campai
 
 Retry logic (must match Node.js behaviour exactly):
 
+0. Auto-schedule new referrals:
+     status = 'referral_received' AND next_attempt_at IS NULL
+     → promote to 'in_progress' with next_attempt_at = now
+       so Steps 2–4 fire in the same tick (first call within 60 s of creation).
+
 1. Close exhausted referrals that never received a final webhook:
      status = 'in_progress' AND attempt_count >= 3 AND next_attempt_at <= now
 
@@ -37,6 +42,18 @@ def _retry_tick() -> None:
         next_at = (
             datetime.now(timezone.utc) + timedelta(minutes=RETRY_INTERVAL_MINUTES)
         ).isoformat()
+
+        # ── Step 0: auto-schedule newly created referrals ─────────────────────
+        promoted = db.query(Referral).filter(
+            Referral.status == "referral_received",
+            Referral.next_attempt_at == None,  # noqa: E711
+        ).update(
+            {"status": "in_progress", "next_attempt_at": now},
+            synchronize_session=False,
+        )
+        if promoted:
+            logger.info("[scheduler] Auto-scheduled %d new referral(s) for immediate call", promoted)
+        db.commit()
 
         # ── Step 1: close exhausted referrals that never got a final webhook ──
         db.query(Referral).filter(
